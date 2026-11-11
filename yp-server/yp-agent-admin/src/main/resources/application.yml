@@ -1,5 +1,8 @@
 server:
   port: 8085
+  servlet:
+    # 本项目对外统一前缀，网关按 /admin/** 转发到本服务
+    context-path: /admin
 spring:
   application:
     name: yp-agent-admin

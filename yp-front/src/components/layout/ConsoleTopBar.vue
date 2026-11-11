@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ROLES, groupOf } from '@/data/console'
+import { ROLES } from '@/data/console'
 import { useAuthStore } from '@/stores/auth'
+import { useMenuStore } from '@/stores/menu'
 import { useUiStore } from '@/stores/ui'
 import AppIcon from '@/components/ui/AppIcon.vue'
 
 const auth = useAuthStore()
+const menu = useMenuStore()
 const ui = useUiStore()
 const route = useRoute()
 const router = useRouter()
@@ -17,7 +19,10 @@ function logout() {
   router.replace({ name: 'login' })
 }
 
-const groupLabel = computed(() => groupOf(route.path)?.label ?? '')
+const groupLabel = computed(() => {
+  const path = route.path === '/agents/new' ? '/agents' : route.path
+  return menu.groupOf(path)?.label ?? ''
+})
 const title = computed(() => route.meta.title ?? '')
 const readOnly = computed(
   () =>

@@ -1,5 +1,6 @@
 package com.ggzed.lc4j.core;
 
+import com.ggzed.lc4j.model.dto.ModelConfig;
 import lombok.Data;
 import java.util.List;
 
@@ -8,5 +9,7 @@ import java.util.List;
 public class AgentConfig {
     private String agentId;
     private String systemPrompt;
+    private String modelType;
     private List<String> allowedToolNames; // 👈 新增：该 Agent 允许使用的工具名列表
+    private ModelConfig modelConfig;
 }

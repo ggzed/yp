@@ -16,7 +16,7 @@ import reactor.core.publisher.Flux;
  * RAG 问答 API（知识库增强对话）
  */
 @RestController
-@RequestMapping("/api/rag")
+@RequestMapping("/rag")
 @RequiredArgsConstructor
 public class RagController {
 

@@ -1,8 +1,9 @@
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
 import { CHAT_SEEDS } from '@/data/console'
+import { chatWithWorkflow } from '@/api/workflow'
 
-export type ChatMode = 'rule' | 'data'
+export type ChatMode = 'rule' | 'data' | 'workflow'
 
 export interface ChatMessage {
   id: number
@@ -14,12 +15,18 @@ export interface ChatMessage {
 
 let seed = 0
 
+function createSessionId(): string {
+  return `wf-${Date.now()}`
+}
+
 function now(): string {
   const date = new Date()
   return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
 }
 
 function seedMessages(mode: ChatMode): ChatMessage[] {
+  // 编排引擎对话没有演示数据，每次进入都是空白会话
+  if (mode === 'workflow') return []
   return CHAT_SEEDS[mode].map((item) => ({
     id: ++seed,
     role: item.role,
@@ -32,15 +39,19 @@ function seedMessages(mode: ChatMode): ChatMessage[] {
 export const useChatStore = defineStore('chat', () => {
   const conversations = ref<Record<ChatMode, ChatMessage[]>>({
     rule: seedMessages('rule'),
-    data: seedMessages('data')
+    data: seedMessages('data'),
+    workflow: seedMessages('workflow')
   })
-  const streaming = ref<Record<ChatMode, boolean>>({ rule: false, data: false })
+  const streaming = ref<Record<ChatMode, boolean>>({ rule: false, data: false, workflow: false })
   const revision = ref(0)
+  /** 编排引擎的会话标识，由前端生成后随每次请求带给后端 */
+  const workflowSessionId = ref(createSessionId())
 
   function reset(mode: ChatMode) {
     revision.value++
     conversations.value[mode] = seedMessages(mode)
     streaming.value[mode] = false
+    if (mode === 'workflow') workflowSessionId.value = createSessionId()
   }
 
   function sleep(ms: number) {
@@ -58,6 +69,29 @@ export const useChatStore = defineStore('chat', () => {
     const reply: ChatMessage = { id: ++seed, role: 'ai', content: '', time: now(), typing: true }
     list.push(reply)
     streaming.value[mode] = true
+
+    // 编排引擎：走真实接口 GET /workflow/chat/chat，失败时把错误信息作为回答展示
+    if (mode === 'workflow') {
+      try {
+        const data = await chatWithWorkflow({
+          agentId: 'risk-agent',
+          sessionId: workflowSessionId.value,
+          query: content
+        })
+        if (run !== revision.value) return
+        reply.content = data.content || '（模型未返回内容）'
+      } catch (err) {
+        if (run !== revision.value) return
+        reply.content = err instanceof Error ? err.message : '对话请求失败'
+      } finally {
+        if (run === revision.value) {
+          reply.typing = false
+          reply.time = now()
+          streaming.value[mode] = false
+        }
+      }
+      return
+    }
 
     const answer =
       mode === 'rule'
@@ -77,5 +111,5 @@ export const useChatStore = defineStore('chat', () => {
     streaming.value[mode] = false
   }
 
-  return { conversations, streaming, reset, send }
+  return { conversations, streaming, workflowSessionId, reset, send }
 })

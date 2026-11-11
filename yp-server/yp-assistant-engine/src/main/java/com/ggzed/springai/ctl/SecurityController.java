@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
  * 风控验证 API
  */
 @RestController
-@RequestMapping("/api/security")
+@RequestMapping("/security")
 @RequiredArgsConstructor
 public class SecurityController {
 

@@ -1,8 +1,9 @@
 package com.ggzed.lc4j.controller;
 
+import com.ggzed.lc4j.config.ModelRegistry;
 import com.ggzed.lc4j.core.AgentKernel;
+import com.ggzed.lc4j.model.request.ModelRegistryRequest;
 import com.ggzed.lc4j.result.Result;
-import com.ggzed.lc4j.agent.FinancialAgent;
 import com.ggzed.lc4j.model.dto.ChatResponse;
 import com.ggzed.lc4j.model.request.ChatRequest;
 import jakarta.validation.Valid;
@@ -12,23 +13,25 @@ import org.springframework.web.bind.annotation.*;
  * LangChain4j 对话 API，路径与入参对齐 yp-assistant-engine
  */
 @RestController
-@RequestMapping("/api/chat")
+@RequestMapping("/chat")
 public class Lc4jController {
 
-    private final FinancialAgent financialAgent;
+//    private final FinancialAgent financialAgent;
 
     private final AgentKernel agentKernel;
+    private final ModelRegistry modelRegistry;
 
-    public Lc4jController(FinancialAgent financialAgent,AgentKernel agentKernel) {
-        this.financialAgent = financialAgent;
+    public Lc4jController(AgentKernel agentKernel, ModelRegistry modelRegistry) {
+//        this.financialAgent = financialAgent;
         this.agentKernel = agentKernel;
+        this.modelRegistry = modelRegistry;
     }
 
-    @PostMapping("/simple")
-    public Result<ChatResponse> simple(@RequestBody @Valid ChatRequest request) {
-        String content = financialAgent.chat(request.sessionId(), request.message());
-        return Result.success(new ChatResponse(request.sessionId(), content));
-    }
+//    @PostMapping("/simple")
+//    public Result<ChatResponse> simple(@RequestBody @Valid ChatRequest request) {
+//        String content = financialAgent.chat(request.sessionId(), request.message());
+//        return Result.success(new ChatResponse(request.sessionId(), content));
+//    }
 
     @GetMapping("/chat")
     public Result<ChatResponse> chat(

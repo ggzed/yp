@@ -20,7 +20,7 @@ import java.util.List;
  * 检索调试 API（不走 LLM，直接看召回结果）
  */
 @RestController
-@RequestMapping("/api/search")
+@RequestMapping("/search")
 @RequiredArgsConstructor
 public class SearchController {
 

@@ -10,7 +10,7 @@ export interface LoginData {
   roles: string[]
 }
 
-/** 登录：POST /api/admin/auth/login（经网关透传到 yp-agent-admin） */
+/** 登录：POST /admin/auth/login（经网关透传到 yp-agent-admin） */
 export function loginApi(username: string, password: string) {
-  return post<LoginData>('/api/admin/auth/login', { username, password })
+  return post<LoginData>('/admin/auth/login', { username, password })
 }

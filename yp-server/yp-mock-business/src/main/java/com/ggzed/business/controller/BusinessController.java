@@ -6,7 +6,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/business")
 public class BusinessController {
 
     // 模拟查询客户风控等级

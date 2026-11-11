@@ -1,5 +1,8 @@
 server:
   port: 8082
+  servlet:
+    # 本项目对外统一前缀，网关按 /business/** 转发到本服务
+    context-path: /business
 spring:
   application:
     name: yp-mock-business

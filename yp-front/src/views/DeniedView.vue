@@ -1,13 +1,15 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { NAV, ROLES } from '@/data/console'
+import { ROLES } from '@/data/console'
 import { useAuthStore } from '@/stores/auth'
+import { useMenuStore } from '@/stores/menu'
 import AppIcon from '@/components/ui/AppIcon.vue'
 
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
+const menu = useMenuStore()
 
 const from = computed(() => (typeof route.query.from === 'string' ? route.query.from : ''))
 const target = computed(() => (from.value ? router.resolve(from.value) : null))
@@ -19,15 +21,8 @@ const requiredRoles = computed(() => {
 const allowedNow = computed(() => auth.allows(target.value?.meta.roles))
 
 function home() {
-  for (const group of NAV) {
-    for (const item of group.items) {
-      if (item.roles.includes(auth.role)) {
-        router.push(item.path)
-        return
-      }
-    }
-  }
-  router.push('/dashboard/overview')
+  const first = menu.groups[0]?.items[0]
+  router.push(first?.path ?? '/dashboard/overview')
 }
 
 function continueVisit() {

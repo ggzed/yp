@@ -1,5 +1,8 @@
 server:
   port: 8084
+  servlet:
+    # 本项目对外统一前缀，网关按 /workflow/** 转发到本服务
+    context-path: /workflow
 spring:
   application:
     # 👈 核心：这个名字必须和网关里 lb://yp-workflow-engine 保持一致！
@@ -11,12 +14,18 @@ spring:
         server-addr: 127.0.0.1:8848
         username: nacos
         password: nacos
-langchain4j:
-  open-ai:
-    chat-model:
-      base-url: https://api.deepseek.com/v1
-      api-key: ${DEEPSEEK_API_KEY}
-      model-name: deepseek-chat
-      temperature: 0.7
-      log-requests: true
-      log-responses: true
+#langchain4j:
+#  open-ai:
+#    chat-model:
+#      base-url: https://api.deepseek.com/v1
+#      api-key: ${DEEPSEEK_API_KEY}
+#      model-name: deepseek-chat
+#      temperature: 0.7
+#      log-requests: true
+#      log-responses: true
+# MCP 服务：优先通过 Nacos 发现 yp-agent-mcp-hub，未注册时回退到 fallback-url
+mcp:
+  client:
+    service-name: yp-agent-mcp-hub
+    endpoint: /mcp
+    fallback-url: http://localhost:8083

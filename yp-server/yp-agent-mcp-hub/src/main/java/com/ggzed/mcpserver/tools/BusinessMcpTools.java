@@ -28,7 +28,7 @@ public class BusinessMcpTools {
         try {
             // 发起调用
             String response = restClient.get()
-                    .uri("/api/business/risk?customerId={id}", customerId)
+                    .uri("/business/risk?customerId={id}", customerId)
                     .retrieve()
                     .body(String.class);
             return "风控查询结果：" + response;

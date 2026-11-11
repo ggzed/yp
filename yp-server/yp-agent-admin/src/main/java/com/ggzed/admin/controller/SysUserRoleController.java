@@ -13,7 +13,7 @@ import java.util.List;
  * 用户角色分配。
  */
 @RestController
-@RequestMapping("/api/admin/user-roles")
+@RequestMapping("/user-roles")
 @RequiredArgsConstructor
 public class SysUserRoleController {
 

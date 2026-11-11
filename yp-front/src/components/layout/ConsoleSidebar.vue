@@ -1,27 +1,27 @@
 <script setup lang="ts">
-import { computed, watch } from 'vue'
+import { computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { NAV, ROLES, groupOf } from '@/data/console'
-import type { NavItem, RoleKey } from '@/data/console'
+import { ROLES } from '@/data/console'
+import type { RoleKey } from '@/data/console'
 import { useAuthStore } from '@/stores/auth'
+import { useMenuStore } from '@/stores/menu'
 import { useUiStore } from '@/stores/ui'
 import AppIcon from '@/components/ui/AppIcon.vue'
 
 const auth = useAuthStore()
+const menu = useMenuStore()
 const ui = useUiStore()
 const route = useRoute()
 const router = useRouter()
 
 const activePath = computed(() => (route.path === '/agents/new' ? '/agents' : route.path))
-const currentGroup = computed(() => groupOf(activePath.value)?.id)
+const currentGroup = computed(() => menu.groupOf(activePath.value)?.id)
 
-function allowed(item: NavItem): boolean {
-  return item.roles.includes(auth.role)
-}
-
-function lockedClick(item: NavItem) {
-  ui.toast(`当前角色（${ROLES[auth.role].name}）无权访问「${item.label}」`, 'err')
-}
+onMounted(menu.load)
+watch(
+  () => auth.role,
+  () => menu.load()
+)
 
 function switchRole(next: RoleKey) {
   if (next === auth.role) return
@@ -79,7 +79,7 @@ watch(
 
     <nav class="nav-scroll">
       <div
-        v-for="group in NAV"
+        v-for="group in menu.groups"
         :key="group.id"
         class="nav-group"
         :class="{ 'is-collapsed': ui.collapsed[group.id], 'is-current': currentGroup === group.id }"
@@ -95,32 +95,29 @@ watch(
           <AppIcon class="chev" name="chevD" :size="14" />
         </button>
         <div class="nav-items">
-          <template v-for="item in group.items" :key="item.path">
-            <RouterLink
-              v-if="allowed(item)"
-              :to="item.path"
-              class="nav-item"
-              :class="{ 'is-active': activePath === item.path }"
-            >
-              <span class="n-label">{{ item.label }}</span>
-              <span v-if="item.badge" class="nav-badge">{{ item.badge }}</span>
-              <span v-if="item.tag" class="nav-tag">{{ item.tag }}</span>
-            </RouterLink>
-            <button
-              v-else
-              type="button"
-              class="nav-item is-locked"
-              aria-disabled="true"
-              :title="`${ROLES[auth.role].name}无权访问`"
-              @click="lockedClick(item)"
-            >
-              <span class="n-label">{{ item.label }}</span>
-              <span v-if="item.badge" class="nav-badge" style="opacity: 0.5">{{ item.badge }}</span>
-              <AppIcon class="lock" name="lock" :size="12" />
-            </button>
-          </template>
+          <RouterLink
+            v-for="item in group.items"
+            :key="item.path"
+            :to="item.path"
+            class="nav-item"
+            :class="{ 'is-active': activePath === item.path }"
+          >
+            <span class="n-label">{{ item.label }}</span>
+            <span v-if="item.badge" class="nav-badge">{{ item.badge }}</span>
+            <span v-if="item.tag" class="nav-tag">{{ item.tag }}</span>
+          </RouterLink>
         </div>
       </div>
+      <p v-if="menu.loading && !menu.loaded" class="role-caption" style="padding: 0 18px">菜单加载中…</p>
+      <button
+        v-else-if="menu.error"
+        class="nav-item"
+        type="button"
+        style="margin: 6px 12px; width: calc(100% - 24px)"
+        @click="menu.load()"
+      >
+        <span class="n-label">{{ menu.error }}，点击重试</span>
+      </button>
     </nav>
 
     <div class="side-foot">

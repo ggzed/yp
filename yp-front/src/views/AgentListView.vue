@@ -1,16 +1,23 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { AGENT_FILTERS } from '@/data/console'
-import type { AgentItem } from '@/data/console'
-import { usePlatformStore } from '@/stores/platform'
+import {
+  deleteAgent,
+  getAgent,
+  listAgents,
+  offlineAgent,
+  publishAgent
+} from '@/api/agents'
+import type { AgentDetail, AgentListItem } from '@/api/agents'
+import { useAuthStore } from '@/stores/auth'
 import { useUiStore } from '@/stores/ui'
 import PageHead from '@/components/ui/PageHead.vue'
 import PageTabs from '@/components/ui/PageTabs.vue'
 import AppIcon from '@/components/ui/AppIcon.vue'
 import AgentWizard from '@/components/business/AgentWizard.vue'
 
-const platform = usePlatformStore()
+const auth = useAuthStore()
 const ui = useUiStore()
 const route = useRoute()
 
@@ -23,40 +30,63 @@ const filters = AGENT_FILTERS
 const active = ref('全部')
 const keyword = ref('')
 const wizardOpen = ref(false)
-const editing = ref<AgentItem | null>(null)
+const editing = ref<AgentDetail | null>(null)
 
-const rows = computed(() =>
-  platform.agents.filter((agent) => {
-    const matchStatus = active.value === '全部' || agent.status === active.value
-    const text = keyword.value.trim().toLowerCase()
-    const matchKeyword =
-      !text || agent.name.toLowerCase().includes(text) || agent.code.toLowerCase().includes(text)
-    return matchStatus && matchKeyword
-  })
-)
+const rows = ref<AgentListItem[]>([])
+const loading = ref(false)
+const loadError = ref('')
 
-const statusTag: Record<AgentItem['status'], string> = {
+const statusTag: Record<string, string> = {
   已发布: 'tag-ok',
   草稿: 'tag-warn',
   已下线: 'tag-neutral'
 }
+
+function errorText(error: unknown) {
+  return error instanceof Error ? error.message : '请求失败'
+}
+
+async function load() {
+  loading.value = true
+  loadError.value = ''
+  try {
+    const page = await listAgents({
+      page: 1,
+      size: 100,
+      status: active.value === '全部' ? undefined : active.value,
+      keyword: keyword.value.trim() || undefined
+    })
+    rows.value = page.records
+  } catch (error) {
+    loadError.value = errorText(error)
+  } finally {
+    loading.value = false
+  }
+}
+
+let timer: number | undefined
+watch([active, keyword], () => {
+  window.clearTimeout(timer)
+  timer = window.setTimeout(load, 250)
+})
+onBeforeUnmount(() => window.clearTimeout(timer))
+
+onMounted(() => {
+  load()
+  if (route.meta.autoWizard && auth.role === 'admin') openCreate()
+})
 
 function openCreate() {
   editing.value = null
   wizardOpen.value = true
 }
 
-function openEdit(agent: AgentItem) {
-  editing.value = agent
-  wizardOpen.value = true
-}
-
-function onPublished(agent: AgentItem) {
-  if (editing.value) {
-    Object.assign(editing.value, agent)
-  } else {
-    platform.addAgent(agent)
-    ui.toast('已添加到 Agent 列表', 'ok')
+async function openEdit(agent: AgentListItem) {
+  try {
+    editing.value = await getAgent(agent.code)
+    wizardOpen.value = true
+  } catch (error) {
+    ui.toast(errorText(error), 'err')
   }
 }
 
@@ -65,19 +95,38 @@ function closeWizard() {
   editing.value = null
 }
 
-function toggleStatus(agent: AgentItem) {
-  if (agent.status === '已发布') {
-    agent.status = '已下线'
-    ui.toast(`「${agent.name}」已下线，端点即刻不可调用`, 'ok')
-  } else {
-    agent.status = '已发布'
-    ui.toast(`「${agent.name}」已重新发布`, 'ok')
+async function onPublished() {
+  const created = !editing.value
+  closeWizard()
+  await load()
+  ui.toast(created ? '已添加到 Agent 列表' : 'Agent 配置已更新', 'ok')
+}
+
+async function toggleStatus(agent: AgentListItem) {
+  try {
+    if (agent.status === '已发布') {
+      await offlineAgent(agent.code)
+      ui.toast(`「${agent.name}」已下线，端点即刻不可调用`, 'ok')
+    } else {
+      await publishAgent(agent.code)
+      ui.toast(`「${agent.name}」已重新发布`, 'ok')
+    }
+    await load()
+  } catch (error) {
+    ui.toast(errorText(error), 'err')
   }
 }
 
-onMounted(() => {
-  if (route.meta.autoWizard) openCreate()
-})
+async function remove(agent: AgentListItem) {
+  if (!window.confirm(`确定删除 Agent「${agent.name}」？`)) return
+  try {
+    await deleteAgent(agent.code)
+    ui.toast('Agent 已删除', 'ok')
+    await load()
+  } catch (error) {
+    ui.toast(errorText(error), 'err')
+  }
+}
 </script>
 
 <template>
@@ -152,7 +201,7 @@ onMounted(() => {
             <td class="mono" style="font-size: 11.5px">{{ agent.model }}</td>
             <td class="r num">{{ agent.tools }}</td>
             <td class="r num">{{ agent.calls.toLocaleString() }}</td>
-            <td><span class="tag" :class="statusTag[agent.status]">{{ agent.status }}</span></td>
+            <td><span class="tag" :class="statusTag[agent.status] ?? 'tag-neutral'">{{ agent.status }}</span></td>
             <td>{{ agent.by }}</td>
             <td class="mono" style="font-size: 11px; color: var(--muted)">{{ agent.time }}</td>
             <td class="r" style="white-space: nowrap">
@@ -162,11 +211,14 @@ onMounted(() => {
               <button class="btn btn-sm btn-quiet" type="button" @click="toggleStatus(agent)">
                 {{ agent.status === '已发布' ? '下线' : '发布' }}
               </button>
+              <button class="btn btn-sm btn-quiet" type="button" @click="remove(agent)">删除</button>
             </td>
           </tr>
         </tbody>
       </table>
-      <div v-if="!rows.length" style="padding: 40px; text-align: center; color: var(--faint)">
+      <div v-if="loading" style="padding: 40px; text-align: center; color: var(--faint)">加载中…</div>
+      <div v-else-if="loadError" style="padding: 40px; text-align: center; color: var(--danger)">{{ loadError }}</div>
+      <div v-else-if="!rows.length" style="padding: 40px; text-align: center; color: var(--faint)">
         没有符合条件的 Agent，试试调整筛选或新建一个。
       </div>
     </div>

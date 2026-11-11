@@ -7,17 +7,19 @@ import {
   WIZARD_TOOL_CATS,
   createWizardForm
 } from '@/data/console'
-import type { AgentItem, WizardForm, WizardTool } from '@/data/console'
+import type { WizardForm, WizardTool } from '@/data/console'
+import { createAgent, publishAgent, updateAgent } from '@/api/agents'
+import type { AgentDetail } from '@/api/agents'
 import { useUiStore } from '@/stores/ui'
 import AppIcon from '@/components/ui/AppIcon.vue'
 import DangerConfirm from '@/components/business/DangerConfirm.vue'
 
 const props = defineProps<{
   open: boolean
-  agent?: AgentItem | null
+  agent?: AgentDetail | null
 }>()
 
-const emit = defineEmits<{ close: []; published: [agent: AgentItem] }>()
+const emit = defineEmits<{ close: []; published: [] }>()
 
 const ui = useUiStore()
 const step = ref(0)
@@ -28,6 +30,7 @@ const success = ref(false)
 const dataId = ref('')
 const pendingTool = ref<WizardTool | null>(null)
 const confirmOpen = ref(false)
+const publishing = ref(false)
 
 const editing = computed(() => Boolean(props.agent))
 const title = computed(() => (editing.value ? '编辑智能体' : '新建智能体'))
@@ -64,17 +67,33 @@ function init() {
   success.value = false
   pendingTool.value = null
   confirmOpen.value = false
+  publishing.value = false
 
-  const seed = props.agent
-    ? {
-        name: props.agent.name,
-        code: props.agent.code,
-        type: props.agent.type,
-        model: props.agent.model,
-        desc: `${props.agent.name} · ${props.agent.type}，由 ${props.agent.by} 维护，当前已发布 ${props.agent.tools} 个工具。`
-      }
-    : undefined
-  form.value = createWizardForm(seed)
+  const base = createWizardForm()
+  const detail = props.agent
+  form.value = detail
+    ? createWizardForm({
+        name: detail.name,
+        code: detail.code,
+        type: (detail.type as WizardForm['type']) || base.type,
+        desc: detail.desc ?? base.desc,
+        dept: detail.dept ?? base.dept,
+        model: detail.model ?? base.model,
+        temp: detail.temp ?? base.temp,
+        topP: detail.topP ?? base.topP,
+        prompt: detail.prompt ?? base.prompt,
+        kb: detail.kb ?? base.kb,
+        topK: detail.topK ?? base.topK,
+        threshold: detail.threshold ?? base.threshold,
+        hybrid: detail.hybrid ?? base.hybrid,
+        memory: detail.memory ?? base.memory,
+        rounds: detail.rounds ?? base.rounds,
+        tools: detail.tools ?? base.tools,
+        guards: detail.guards ?? base.guards,
+        quota: detail.quota ?? base.quota,
+        note: detail.note ?? base.note
+      })
+    : base
 }
 
 watch(
@@ -163,7 +182,8 @@ function toggleGuard(id: string) {
     : [...form.value.guards, id]
 }
 
-function publish() {
+async function publish() {
+  if (publishing.value) return
   if (hasRiskTool.value && !form.value.guards.includes('block')) {
     step.value = WIZARD_STEPS.length - 1
     maxStep.value = WIZARD_STEPS.length - 1
@@ -174,23 +194,48 @@ function publish() {
 
   const code = form.value.code.trim() || `agent_${Math.random().toString(36).slice(2, 8)}`
   form.value.code = code
-  dataId.value = `agt_${Math.random().toString(16).slice(2, 10)}`
 
-  const agent: AgentItem = {
+  const payload: AgentDetail = {
     name: form.value.name.trim(),
     code,
     type: form.value.type,
+    desc: form.value.desc,
+    dept: form.value.dept,
     model: form.value.model,
-    status: '已发布',
-    tools: form.value.tools.length,
-    calls: props.agent?.calls ?? 0,
-    by: '林岚',
-    time: '11-06'
+    temp: form.value.temp,
+    topP: form.value.topP,
+    prompt: form.value.prompt,
+    kb: form.value.kb,
+    topK: form.value.topK,
+    threshold: form.value.threshold,
+    hybrid: form.value.hybrid,
+    memory: form.value.memory,
+    rounds: form.value.rounds,
+    tools: form.value.tools,
+    guards: form.value.guards,
+    quota: form.value.quota,
+    note: form.value.note
   }
 
-  success.value = true
-  emit('published', agent)
-  ui.toast(editing.value ? '智能体配置已更新并生效' : '智能体已发布并写入 Nacos', 'ok')
+  publishing.value = true
+  error.value = ''
+  try {
+    if (editing.value && props.agent) {
+      await updateAgent(props.agent.code, payload)
+    } else {
+      await createAgent(payload)
+    }
+    const result = await publishAgent(code)
+    dataId.value = result.dataId
+    success.value = true
+    emit('published')
+    ui.toast(editing.value ? '智能体配置已更新并生效' : '智能体已发布并写入 Nacos', 'ok')
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : '发布失败，请稍后重试'
+    ui.toast(error.value, 'err')
+  } finally {
+    publishing.value = false
+  }
 }
 
 function onKey(event: KeyboardEvent) {
@@ -268,7 +313,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
                   </div>
                   <div class="field">
                     <label class="field-label" for="agent-code">Agent Code</label>
-                    <input id="agent-code" v-model="form.code" class="mono input" placeholder="留空自动生成，如 risk_qa_v4" />
+                    <input id="agent-code" v-model="form.code" class="mono input" placeholder="留空自动生成，如 risk_qa_v4" :disabled="editing" />
                   </div>
                 </div>
 
@@ -496,8 +541,8 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
           <template v-else>
             <button class="btn" type="button" @click="emit('close')">取消</button>
             <button class="btn" type="button" :disabled="step === 0" @click="back">上一步</button>
-            <button class="btn btn-primary" type="button" @click="next">
-              {{ step === WIZARD_STEPS.length - 1 ? '发布' : '下一步' }}
+            <button class="btn btn-primary" type="button" :disabled="publishing" @click="next">
+              {{ publishing ? '发布中…' : step === WIZARD_STEPS.length - 1 ? '发布' : '下一步' }}
               <AppIcon v-if="step < WIZARD_STEPS.length - 1" name="arrow" :size="13" />
               <AppIcon v-else name="check" :size="13" />
             </button>

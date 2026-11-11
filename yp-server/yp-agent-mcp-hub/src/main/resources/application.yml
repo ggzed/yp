@@ -18,5 +18,9 @@ spring:
         name: financial-tools-server
         version: 1.0.0
 
+# 本项目 REST 接口统一前缀；MCP 协议端点仍为 /mcp（由 Spring AI 注册，不走该前缀）
+api:
+  prefix: /mcp
+
 server:
   port: 8083

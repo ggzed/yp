@@ -13,25 +13,33 @@ spring:
       server:
         webflux:
           routes:
+            # 每个服务使用独立前缀，前缀与各服务 controller 的 @RequestMapping 保持一致，网关透传不做改写
+            - id: agent-admin-route
+              uri: lb://yp-agent-admin
+              predicates:
+                # 管理后台：/admin/**
+                - Path=/admin/**
+
             - id: assistant-engine-route
-              # 👇 lb 代表 LoadBalanced，后面是 Nacos 里的服务名
               uri: lb://yp-assistant-engine
               predicates:
-                # 对外：POST /api/chat/assistant/simple
-                - Path=/api/chat/assistant/**
-              filters:
-                - RewritePath=/api/chat/assistant/(?<segment>.*), /api/chat/$\{segment}
+                # 问答引擎：/assistant/**
+                - Path=/assistant/**
 
             - id: workflow-engine-route
               uri: lb://yp-workflow-engine
               predicates:
-                # 对外：POST /api/chat/workflow/simple（与 assistant 同路径、同入参、同出参）
-                - Path=/api/chat/workflow/**
-              filters:
-                - RewritePath=/api/chat/workflow/(?<segment>.*), /api/chat/$\{segment}
+                # 编排引擎：/workflow/**
+                - Path=/workflow/**
 
-            - id: agent-admin-route
-              uri: lb://yp-agent-admin
+            - id: mcp-hub-route
+              uri: lb://yp-agent-mcp-hub
               predicates:
-                # 管理后台：直接透传 /api/admin/**
-                - Path=/api/admin/**
+                # MCP 服务：协议端点为 /mcp，内部接口为 /mcp/internal/**
+                - Path=/mcp/**
+
+            - id: mock-business-route
+              uri: lb://yp-mock-business
+              predicates:
+                # 业务模拟服务：/business/**
+                - Path=/business/**

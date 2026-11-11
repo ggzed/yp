@@ -12,7 +12,7 @@ import java.util.List;
  * 部门管理。
  */
 @RestController
-@RequestMapping("/api/admin/depts")
+@RequestMapping("/depts")
 @RequiredArgsConstructor
 public class SysDeptController {
 

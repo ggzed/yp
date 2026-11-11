@@ -26,7 +26,7 @@ import java.util.UUID;
  * 认证接口：账号密码登录，返回用户信息与角色编码。
  */
 @RestController
-@RequestMapping("/api/admin/auth")
+@RequestMapping("/auth")
 @RequiredArgsConstructor
 public class AuthController {
 

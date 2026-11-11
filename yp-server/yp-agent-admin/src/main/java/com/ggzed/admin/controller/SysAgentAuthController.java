@@ -13,7 +13,7 @@ import java.util.List;
  * Agent 数据权限授权管理。
  */
 @RestController
-@RequestMapping("/api/admin/agent-auth")
+@RequestMapping("/agent-auth")
 @RequiredArgsConstructor
 public class SysAgentAuthController {
 

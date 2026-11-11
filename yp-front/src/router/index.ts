@@ -25,7 +25,7 @@ declare module 'vue-router' {
   interface RouteMeta {
     title: string
     roles?: readonly RoleKey[]
-    mode?: 'rule' | 'data'
+    mode?: 'rule' | 'data' | 'workflow'
     autoWizard?: boolean
   }
 }
@@ -67,6 +67,12 @@ const routes: RouteRecordRaw[] = [
     name: 'analytics',
     component: ChatView,
     meta: { title: '风控数据智算', roles: ['sales', 'admin'], mode: 'data' }
+  },
+  {
+    path: '/apps/workflow-chat',
+    name: 'workflow-chat',
+    component: ChatView,
+    meta: { title: '工作流对话', roles: ['sales', 'admin'], mode: 'workflow' }
   },
   {
     path: '/agents',
